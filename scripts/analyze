@@ -1,0 +1,9 @@
+#!/bin/sh
+
+set -v
+
+root=$(cd "$(dirname "$0")" && cd .. && pwd)
+
+command="cat /var/log/nginx/access.log | alp json --sort=sum -r -m '/api/player/competition/[^/]+/ranking,/api/player/player/[^/]+$,/api/organizer/competition/[^/]+/score,/api/organizer/competition/[^/]+/finish,/api/organizer/player/[^/]+/disqualified'"
+
+ssh isucon@isu1 "$command"

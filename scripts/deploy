@@ -1,0 +1,27 @@
+#!/bin/sh
+
+set -v
+
+root=$(cd "$(dirname "$0")" && cd .. && pwd)
+now=$(date +%Y%m%d-%H%M%S)
+
+branch=${1-main}
+
+#update="cd /home/isucon/github/webapp/golang && git remote update && git checkout $branch && git pull"
+#deploy="cd /home/isucon/github/webapp/golang && make && sudo systemctl restart isu-go.service"
+rotate_nginx="sudo mv -v /var/log/nginx/access.log /var/log/nginx/access.log.$now && sudo ln -sf /var/log/nginx/access.log.$now /var/log/nginx/access.log.latest; sudo systemctl restart nginx.service"
+#rotate_mysql="sudo mv -v /var/log/mysql/mysqld-slow.log /var/log/mysql/mysqld-slow.log.$now && sudo ln -sf /var/log/mysql/mysqld-slow.log.$now /var/log/mysql/mysqld-slow.log.latest; mysqladmin -uisuconp -pisuconp flush-logs"
+
+#ssh isucon@isu1 "$update" &
+#wait
+
+# app
+#ssh isucon@isu1 "$deploy" &
+
+# nginx
+ssh isucon@isu1 "$rotate_nginx" &
+
+# mysql
+#ssh isucon@isu1 "$rotate_mysql" &
+
+wait
