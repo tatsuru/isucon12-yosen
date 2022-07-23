@@ -47,6 +47,8 @@ var (
 	adminDB *sqlx.DB
 
 	sqliteDriverName = "sqlite3"
+
+	billingReportCache map[string]BillingReport
 )
 
 // 環境変数を取得する、なければデフォルト値を返す
@@ -194,6 +196,8 @@ func Run() {
 	adminDB.SetConnMaxIdleTime(time.Minute * 2)
 
 	defer adminDB.Close()
+
+	billingReportCache = map[string]BillingReport{}
 
 	port := getEnv("SERVER_APP_PORT", "3000")
 	e.Logger.Infof("starting isuports server on : %s ...", port)
@@ -557,6 +561,11 @@ func billingReportByCompetition(ctx context.Context, tenantDB dbOrTx, tenantID i
 			BillingVisitorYen: 0,
 			BillingYen:        0,
 		}, nil
+	}
+
+	report, ok := billingReportCache[comp.ID]
+	if ok {
+		return &report, nil
 	}
 
 	// ランキングにアクセスした参加者のIDを取得する
