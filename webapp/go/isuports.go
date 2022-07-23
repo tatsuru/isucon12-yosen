@@ -381,6 +381,7 @@ func retrievePlayers(ctx context.Context, tenantDB dbOrTx, ids []interface{}) (*
 	if err := tenantDB.SelectContext(ctx, &p, "SELECT * FROM player WHERE id IN (?)", ids...); err != nil {
 		return nil, fmt.Errorf("error Select players: ids=%s, %w", ids, err)
 	}
+	fmt.Println(p)
 	return &p, nil
 }
 
