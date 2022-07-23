@@ -988,6 +988,12 @@ type ScoreHandlerResult struct {
 	Rows int64 `json:"rows"`
 }
 
+func CopyString(s string) string {
+	bytes := make([]byte, len(s))
+	copy(bytes, s)
+	return string(bytes)
+}
+
 // テナント管理者向けAPI
 // POST /api/organizer/competition/:competition_id/score
 // 大会のスコアをCSVでアップロードする
@@ -1067,7 +1073,7 @@ func competitionScoreHandler(c echo.Context) error {
 		if len(row) != 2 {
 			return fmt.Errorf("row must have two columns: %#v", row)
 		}
-		playerID, scoreStr := row[0], row[1]
+		playerID, scoreStr := CopyString(row[0]), CopyString(row[1])
 		if _, ok := playerIds[playerID]; !ok {
 			if _, err := retrievePlayer(ctx, tenantDB, playerID); err != nil {
 				// 存在しない参加者が含まれている
@@ -1129,7 +1135,6 @@ func competitionScoreHandler(c echo.Context) error {
 				"error Insert player_score: id=%s, tenant_id=%d, playerID=%s, competitionID=%s, score=%d, rowNum=%d, createdAt=%d, updatedAt=%d, %w",
 				ps.ID, ps.TenantID, ps.PlayerID, ps.CompetitionID, ps.Score, ps.RowNum, ps.CreatedAt, ps.UpdatedAt, err,
 			)
-
 		}
 	}
 
