@@ -1649,7 +1649,7 @@ func initializeHandler(c echo.Context) error {
 		); err != nil {
 			return fmt.Errorf("failed to fetch competition: %w", err)
 		}
-		var allPlayerScoreRows []PlayerScoreRow
+
 		for _, com := range competitionRows {
 			if err := tenantDB.SelectContext(
 				context.Background(),
@@ -1659,21 +1659,20 @@ func initializeHandler(c echo.Context) error {
 			); err != nil {
 				return fmt.Errorf("failed to fetch player_score: %w", err)
 			}
-			allPlayerScoreRows = append(allPlayerScoreRows, playerScoreRows...)
-		}
 
-		createTmpTenantDB(int64(i))
-		tmpTenantDB, err := connectToTmpTenantDB(int64(i))
-		if err != nil {
-			return err
-		}
+			createTmpTenantDB(int64(i))
+			tmpTenantDB, err := connectToTmpTenantDB(int64(i))
+			if err != nil {
+				return err
+			}
 
-		_, err = tmpTenantDB.NamedExec(
-			`INSERT INTO player_score (id, tenant_id, player_id, competition_id, score, row_num, created_at, updated_at) VALUES (:id, :tenant_id, :player_id, :competition_id, :score, :row_num, :created_at, :updated_at)`,
-			allPlayerScoreRows,
-		)
-		if err != nil {
-			return fmt.Errorf("INSERT INTO ERROR: %w", err)
+			_, err = tmpTenantDB.NamedExec(
+				`INSERT INTO player_score (id, tenant_id, player_id, competition_id, score, row_num, created_at, updated_at) VALUES (:id, :tenant_id, :player_id, :competition_id, :score, :row_num, :created_at, :updated_at)`,
+				playerScoreRows,
+			)
+			if err != nil {
+				return fmt.Errorf("INSERT INTO ERROR: %w", err)
+			}
 		}
 	}
 	if err != nil {
