@@ -376,6 +376,14 @@ func retrievePlayer(ctx context.Context, tenantDB dbOrTx, id string) (*PlayerRow
 	return &p, nil
 }
 
+func retrievePlayers(ctx context.Context, tenantDB dbOrTx, ids []string) (*[]PlayerRow, error) {
+	var p []PlayerRow
+	if err := tenantDB.GetContext(ctx, &p, "SELECT * FROM player WHERE id IN (?)", ids); err != nil {
+		return nil, fmt.Errorf("error Select players: ids=%s, %w", ids, err)
+	}
+	return &p, nil
+}
+
 // 参加者を認可する
 // 参加者向けAPIで呼ばれる
 func authorizePlayer(ctx context.Context, tenantDB dbOrTx, id string) error {
@@ -1376,18 +1384,24 @@ func competitionRankingHandler(c echo.Context) error {
 		return fmt.Errorf("error Select player_score: tenantID=%d, competitionID=%s, %w", tenant.ID, competitionID, err)
 	}
 	ranks := make([]CompetitionRank, 0, len(pss))
-	scoredPlayerSet := make(map[string]struct{}, len(pss))
+	scoredPlayerSet := make(map[string]PlayerScoreRow, len(pss))
+	var playerIds []string
 	for _, ps := range pss {
 		// player_scoreが同一player_id内ではrow_numの降順でソートされているので
 		// 現れたのが2回目以降のplayer_idはより大きいrow_numでスコアが出ているとみなせる
 		if _, ok := scoredPlayerSet[ps.PlayerID]; ok {
 			continue
 		}
-		scoredPlayerSet[ps.PlayerID] = struct{}{}
-		p, err := retrievePlayer(ctx, tenantDB, ps.PlayerID)
-		if err != nil {
-			return fmt.Errorf("error retrievePlayer: %w", err)
-		}
+		scoredPlayerSet[ps.PlayerID] = ps
+
+		playerIds = append(playerIds, ps.PlayerID)
+	}
+	players, err := retrievePlayers(ctx, tenantDB, playerIds)
+	if err != nil {
+		return fmt.Errorf("error retrievePlayers: %w", err)
+	}
+	for _, p := range *players {
+		ps := scoredPlayerSet[p.ID]
 		ranks = append(ranks, CompetitionRank{
 			Score:             ps.Score,
 			PlayerID:          p.ID,
@@ -1395,6 +1409,7 @@ func competitionRankingHandler(c echo.Context) error {
 			RowNum:            ps.RowNum,
 		})
 	}
+
 	sort.Slice(ranks, func(i, j int) bool {
 		if ranks[i].Score == ranks[j].Score {
 			return ranks[i].RowNum < ranks[j].RowNum
