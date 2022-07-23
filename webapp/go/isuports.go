@@ -684,6 +684,7 @@ func tenantsBillingHandler(c echo.Context) error {
 				"SELECT * FROM competition WHERE tenant_id=?",
 				t.ID,
 			); err != nil {
+				c.Logger().Errorf("tenant_id: %s\n", t.ID)
 				return fmt.Errorf("failed to Select competition: %w", err)
 			}
 			for _, comp := range cs {
