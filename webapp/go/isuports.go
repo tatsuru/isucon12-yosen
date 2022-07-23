@@ -376,14 +376,6 @@ func retrievePlayer(ctx context.Context, tenantDB dbOrTx, id string) (*PlayerRow
 	return &p, nil
 }
 
-func retrievePlayers(ctx context.Context, tenantDB dbOrTx, ids []interface{}) (*[]PlayerRow, error) {
-	var p []PlayerRow
-	if err := tenantDB.SelectContext(ctx, &p, "SELECT * FROM player WHERE id IN (?)", ids...); err != nil {
-		return nil, fmt.Errorf("error Select players: ids=%s, %w", ids, err)
-	}
-	return &p, nil
-}
-
 // 参加者を認可する
 // 参加者向けAPIで呼ばれる
 func authorizePlayer(ctx context.Context, tenantDB dbOrTx, id string) error {
@@ -1396,7 +1388,6 @@ func competitionRankingHandler(c echo.Context) error {
 
 		playerIds = append(playerIds, ps.PlayerID)
 	}
-	// players, err := retrievePlayers(ctx, tenantDB, playerIds)
 	query, args, err := sqlx.In("SELECT * FROM player WHERE id IN (?)", playerIds)
 	query = tenantDB.Rebind(query)
 	rows, err := tenantDB.Queryx(query, args...)
