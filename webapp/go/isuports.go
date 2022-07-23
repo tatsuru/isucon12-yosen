@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -411,6 +410,15 @@ func retrieveCompetition(ctx context.Context, tenantDB dbOrTx, id string) (*Comp
 		return nil, fmt.Errorf("error Select competition: id=%s, %w", id, err)
 	}
 	return &c, nil
+}
+
+// 大会を取得する
+func fetchAllCompetition(ctx context.Context, tenantDB dbOrTx) (*[]CompetitionRow, error) {
+	var competitions []CompetitionRow
+	if err := tenantDB.SelectContext(ctx, &competitions, "SELECT * FROM competition"); err != nil {
+		return nil, fmt.Errorf("error Select all competition:, %w", err)
+	}
+	return &competitions, nil
 }
 
 type PlayerScoreRow struct {
@@ -1252,36 +1260,31 @@ func playerHandler(c echo.Context) error {
 	}
 	defer fl.Close()
 	pss := make([]PlayerScoreRow, 0, len(cs))
-	for _, c := range cs {
-		ps := PlayerScoreRow{}
-		if err := tenantDB.GetContext(
-			ctx,
-			&ps,
-			// 最後にCSVに登場したスコアを採用する = row_numが一番大きいもの
-			"SELECT * FROM player_score WHERE tenant_id = ? AND competition_id = ? AND player_id = ? ORDER BY row_num DESC LIMIT 1",
-			v.tenantID,
-			c.ID,
-			p.ID,
-		); err != nil {
-			// 行がない = スコアが記録されてない
-			if errors.Is(err, sql.ErrNoRows) {
-				continue
-			}
-			return fmt.Errorf("error Select player_score: tenantID=%d, competitionID=%s, playerID=%s, %w", v.tenantID, c.ID, p.ID, err)
-		}
-		pss = append(pss, ps)
+	if err := tenantDB.SelectContext(
+		ctx,
+		&pss,
+		// 最後にCSVに登場したスコアを採用する = row_numが一番大きいもの
+		"SELECT * FROM player_score WHERE tenant_id = ? AND player_id = ?",
+		v.tenantID,
+		p.ID,
+	); err != nil {
+		// 行がない = スコアが記録されてない
+		return fmt.Errorf("error Select player_score: tenantID=%d, playerID=%s, %w", v.tenantID, p.ID, err)
 	}
 
 	psds := make([]PlayerScoreDetail, 0, len(pss))
+	competitions, err := fetchAllCompetition(ctx, tenantDB)
+
 	for _, ps := range pss {
-		comp, err := retrieveCompetition(ctx, tenantDB, ps.CompetitionID)
-		if err != nil {
-			return fmt.Errorf("error retrieveCompetition: %w", err)
+		for _, comp := range *competitions {
+			if comp.ID == ps.CompetitionID {
+				psds = append(psds, PlayerScoreDetail{
+					CompetitionTitle: comp.Title,
+					Score:            ps.Score,
+				})
+				break
+			}
 		}
-		psds = append(psds, PlayerScoreDetail{
-			CompetitionTitle: comp.Title,
-			Score:            ps.Score,
-		})
 	}
 
 	res := SuccessResult{
@@ -1383,9 +1386,10 @@ func competitionRankingHandler(c echo.Context) error {
 	if err := tenantDB.SelectContext(
 		ctx,
 		&pss,
-		"SELECT * FROM player_score WHERE tenant_id = ? AND competition_id = ? ORDER BY row_num DESC",
+		"SELECT * FROM player_score WHERE tenant_id = ? AND competition_id = ? ORDER BY score DESC OFFSET ? LIMIT 100",
 		tenant.ID,
 		competitionID,
+		rankAfter,
 	); err != nil {
 		return fmt.Errorf("error Select player_score: tenantID=%d, competitionID=%s, %w", tenant.ID, competitionID, err)
 	}
@@ -1429,12 +1433,6 @@ func competitionRankingHandler(c echo.Context) error {
 		})
 	}
 
-	sort.Slice(ranks, func(i, j int) bool {
-		if ranks[i].Score == ranks[j].Score {
-			return ranks[i].RowNum < ranks[j].RowNum
-		}
-		return ranks[i].Score > ranks[j].Score
-	})
 	pagedRanks := make([]CompetitionRank, 0, 100)
 	for i, rank := range ranks {
 		if int64(i) < rankAfter {
