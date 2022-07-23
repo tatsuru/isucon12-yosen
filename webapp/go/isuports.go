@@ -378,7 +378,7 @@ func retrievePlayer(ctx context.Context, tenantDB dbOrTx, id string) (*PlayerRow
 
 func retrievePlayers(ctx context.Context, tenantDB dbOrTx, ids []interface{}) (*[]PlayerRow, error) {
 	var p []PlayerRow
-	if err := tenantDB.GetContext(ctx, &p, "SELECT * FROM player WHERE id IN (?)", ids...); err != nil {
+	if err := tenantDB.SelectContext(ctx, &p, "SELECT * FROM player WHERE id IN (?)", ids...); err != nil {
 		return nil, fmt.Errorf("error Select players: ids=%s, %w", ids, err)
 	}
 	return &p, nil
