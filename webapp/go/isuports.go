@@ -1397,6 +1397,7 @@ func competitionRankingHandler(c echo.Context) error {
 		playerIds = append(playerIds, ps.PlayerID)
 	}
 	players, err := retrievePlayers(ctx, tenantDB, playerIds)
+	c.Logger().Debugf("HELLO, %v", playerIds)
 	c.Logger().Debugf("HELLO, %v", players)
 	if err != nil {
 		return fmt.Errorf("error retrievePlayers: %w", err)
