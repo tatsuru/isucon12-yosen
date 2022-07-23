@@ -376,9 +376,9 @@ func retrievePlayer(ctx context.Context, tenantDB dbOrTx, id string) (*PlayerRow
 	return &p, nil
 }
 
-func retrievePlayers(ctx context.Context, tenantDB dbOrTx, ids []string) (*[]PlayerRow, error) {
+func retrievePlayers(ctx context.Context, tenantDB dbOrTx, ids []interface{}) (*[]PlayerRow, error) {
 	var p []PlayerRow
-	if err := tenantDB.GetContext(ctx, &p, "SELECT * FROM player WHERE id IN (?)", ids); err != nil {
+	if err := tenantDB.GetContext(ctx, &p, "SELECT * FROM player WHERE id IN (?)", ids...); err != nil {
 		return nil, fmt.Errorf("error Select players: ids=%s, %w", ids, err)
 	}
 	return &p, nil
@@ -1385,7 +1385,7 @@ func competitionRankingHandler(c echo.Context) error {
 	}
 	ranks := make([]CompetitionRank, 0, len(pss))
 	scoredPlayerSet := make(map[string]PlayerScoreRow, len(pss))
-	var playerIds []string
+	var playerIds []interface{}
 	for _, ps := range pss {
 		// player_scoreが同一player_id内ではrow_numの降順でソートされているので
 		// 現れたのが2回目以降のplayer_idはより大きいrow_numでスコアが出ているとみなせる
