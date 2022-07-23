@@ -1399,7 +1399,7 @@ func competitionRankingHandler(c echo.Context) error {
 	// players, err := retrievePlayers(ctx, tenantDB, playerIds)
 	query, args, err := sqlx.In("SELECT * FROM player WHERE id IN (?)", playerIds)
 	query = tenantDB.Rebind(query)
-	rows, err := tenantDB.Query(query, args...)
+	rows, err := tenantDB.Queryx(query, args...)
 
 	if err != nil {
 		return fmt.Errorf("error Select players: ids=%s, %w", playerIds, err)
@@ -1411,7 +1411,7 @@ func competitionRankingHandler(c echo.Context) error {
 	}
 	for rows.Next() {
 		var p PlayerRow
-		err := rows.Scan(&p)
+		err := rows.StructScan(&p)
 		if err != nil {
 			return fmt.Errorf("error scanPlayer: %w", err)
 		}
