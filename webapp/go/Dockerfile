@@ -19,6 +19,6 @@ COPY --chown=isucon:isucon ./ /home/isucon/webapp/go/
 
 ENV GOPATH=/home/isucon/tmp/go
 ENV GOCACHE=/home/isucon/tmp/go/.cache
-RUN go build -o isuports ./cmd/app
+RUN go build -o app ./cmd/isuports
 
-CMD ["./cmd/app"]
+CMD ["./app"]
