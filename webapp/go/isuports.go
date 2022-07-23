@@ -86,9 +86,29 @@ func connectToTenantDB(id int64) (*sqlx.DB, error) {
 	return db, nil
 }
 
+func connectToTmpTenantDB(id int64) (*sqlx.DB, error) {
+	p := tenantDBPath(id)
+	db, err := sqlx.Open(sqliteDriverName, fmt.Sprintf("file:%s?mode=rw", p))
+	if err != nil {
+		return nil, fmt.Errorf("failed to open tenant DB: %w", err)
+	}
+	return db, nil
+}
+
 // テナントDBを新規に作成する
 func createTenantDB(id int64) error {
 	p := tenantDBPath(id)
+
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("sqlite3 %s < %s", p, tenantDBSchemaFilePath))
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to exec sqlite3 %s < %s, out=%s: %w", p, tenantDBSchemaFilePath, string(out), err)
+	}
+	return nil
+}
+
+func createTmpTenantDB(id int64) error {
+	tenantDBDir := getEnv("ISUCON_TENANT_DB_DIR", "../tenant_db")
+	p := filepath.Join(tenantDBDir, "/tmp", fmt.Sprintf("%d.db", id))
 
 	cmd := exec.Command("sh", "-c", fmt.Sprintf("sqlite3 %s < %s", p, tenantDBSchemaFilePath))
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -1610,6 +1630,52 @@ type InitializeHandlerResult struct {
 // データベースの初期化などが実行されるため、スキーマを変更した場合などは適宜改変すること
 func initializeHandler(c echo.Context) error {
 	out, err := exec.Command(initializeScript).CombinedOutput()
+
+	if err != nil {
+		return fmt.Errorf("failed to connectToTenantDB: %w", err)
+	}
+	for i := 1; i < 100; i++ {
+		tenantDB, err := connectToTenantDB(int64(i))
+		if err != nil {
+			return err
+		}
+		var competitionRows []CompetitionRow
+		var playerScoreRows []PlayerScoreRow
+
+		if err := tenantDB.SelectContext(
+			context.Background(),
+			&competitionRows,
+			"SELECT * FROM competition",
+		); err != nil {
+			return fmt.Errorf("failed to fetch competition: %w", err)
+		}
+		var allPlayerScoreRows []PlayerScoreRow
+		for _, com := range competitionRows {
+			if err := tenantDB.SelectContext(
+				context.Background(),
+				&playerScoreRows,
+				"SELECT * from player_score WHERE competition_id = ? GROUP BY player_id HAVING MAX(row_num);",
+				com.ID,
+			); err != nil {
+				return fmt.Errorf("failed to fetch competition: %w", err)
+			}
+			allPlayerScoreRows = append(allPlayerScoreRows, playerScoreRows...)
+		}
+
+		createTmpTenantDB(int64(i))
+		tmpTenantDB, err := connectToTmpTenantDB(int64(i))
+		if err != nil {
+			return err
+		}
+
+		_, err = tmpTenantDB.NamedExec(
+			`INSERT INTO player_score (id, tenant_id, player_id, competition_id, score, row_num, created_at, updated_at) VALUES (:id, :tenant_id, :player_id, :competition_id, :score, :row_num, :created_at, :updated_at)`,
+			allPlayerScoreRows,
+		)
+		if err != nil {
+			return err
+		}
+	}
 	if err != nil {
 		return fmt.Errorf("error exec.Command: %s %e", string(out), err)
 	}
