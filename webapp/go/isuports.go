@@ -1402,30 +1402,25 @@ func competitionRankingHandler(c echo.Context) error {
 		playerIds = append(playerIds, ps.PlayerID)
 	}
 	query, args, err := sqlx.In("SELECT * FROM player WHERE id IN (?)", playerIds)
-	query = tenantDB.Rebind(query)
-	rows, err := tenantDB.Queryx(query, args...)
-
+	var playerRows []PlayerRow
+	err = tenantDB.Select(&playerRows, query, args...)
 	if err != nil {
 		return fmt.Errorf("error Select players: ids=%s, %w", playerIds, err)
 	}
 
-	c.Logger().Debugf("HELLO, %v", playerIds)
 	if err != nil {
 		return fmt.Errorf("error retrievePlayers: %w", err)
 	}
-	for rows.Next() {
-		var p PlayerRow
-		err := rows.StructScan(&p)
-		if err != nil {
-			return fmt.Errorf("error scanPlayer: %w", err)
-		}
-		ps := scoredPlayerSet[p.ID]
+
+	for _, player := range playerRows {
+		ps := scoredPlayerSet[player.ID]
 		ranks = append(ranks, CompetitionRank{
 			Score:             ps.Score,
-			PlayerID:          p.ID,
-			PlayerDisplayName: p.DisplayName,
+			PlayerID:          player.ID,
+			PlayerDisplayName: player.DisplayName,
 			RowNum:            ps.RowNum,
 		})
+
 	}
 
 	sort.Slice(ranks, func(i, j int) bool {
