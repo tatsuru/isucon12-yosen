@@ -1657,7 +1657,7 @@ func initializeHandler(c echo.Context) error {
 				"SELECT * from player_score WHERE competition_id = ? GROUP BY player_id HAVING MAX(row_num);",
 				com.ID,
 			); err != nil {
-				return fmt.Errorf("failed to fetch competition: %w", err)
+				return fmt.Errorf("failed to fetch player_score: %w", err)
 			}
 			allPlayerScoreRows = append(allPlayerScoreRows, playerScoreRows...)
 		}
@@ -1673,7 +1673,7 @@ func initializeHandler(c echo.Context) error {
 			allPlayerScoreRows,
 		)
 		if err != nil {
-			return err
+			return fmt.Errorf("INSERT INTO ERROR: %w", err)
 		}
 	}
 	if err != nil {
