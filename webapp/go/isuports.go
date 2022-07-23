@@ -1385,7 +1385,7 @@ func competitionRankingHandler(c echo.Context) error {
 	}
 	ranks := make([]CompetitionRank, 0, len(pss))
 	scoredPlayerSet := make(map[string]PlayerScoreRow, len(pss))
-	var playerIds []interface{}
+	var playerIds []string
 	for _, ps := range pss {
 		// player_scoreが同一player_id内ではrow_numの降順でソートされているので
 		// 現れたのが2回目以降のplayer_idはより大きいrow_numでスコアが出ているとみなせる
@@ -1396,13 +1396,25 @@ func competitionRankingHandler(c echo.Context) error {
 
 		playerIds = append(playerIds, ps.PlayerID)
 	}
-	players, err := retrievePlayers(ctx, tenantDB, playerIds)
+	// players, err := retrievePlayers(ctx, tenantDB, playerIds)
+	query, args, err := sqlx.In("SELECT * FROM player WHERE id IN (?)", playerIds)
+	query = tenantDB.Rebind(query)
+	rows, err := tenantDB.Query(query, args...)
+
+	if err != nil {
+		return fmt.Errorf("error Select players: ids=%s, %w", playerIds, err)
+	}
+
 	c.Logger().Debugf("HELLO, %v", playerIds)
-	c.Logger().Debugf("HELLO, %v", players)
 	if err != nil {
 		return fmt.Errorf("error retrievePlayers: %w", err)
 	}
-	for _, p := range *players {
+	for rows.Next() {
+		var p PlayerRow
+		err := rows.Scan(&p)
+		if err != nil {
+			return fmt.Errorf("error scanPlayer: %w", err)
+		}
 		ps := scoredPlayerSet[p.ID]
 		ranks = append(ranks, CompetitionRank{
 			Score:             ps.Score,
