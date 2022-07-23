@@ -1098,6 +1098,12 @@ func competitionScoreHandler(c echo.Context) error {
 		})
 	}
 
+	// 必要なのは最後のデータだけなのでplayerあたり、ひとつのscoreRowにする
+	newScores := map[string]PlayerScoreRow{}
+	for _, row := range playerScoreRows {
+		newScores[row.PlayerID] = row
+	}
+
 	if _, err := tenantDB.ExecContext(
 		ctx,
 		"DELETE FROM player_score WHERE tenant_id = ? AND competition_id = ?",
@@ -1106,7 +1112,7 @@ func competitionScoreHandler(c echo.Context) error {
 	); err != nil {
 		return fmt.Errorf("error Delete player_score: tenantID=%d, competitionID=%s, %w", v.tenantID, competitionID, err)
 	}
-	for _, ps := range playerScoreRows {
+	for _, ps := range newScores {
 		if _, err := tenantDB.NamedExecContext(
 			ctx,
 			"INSERT INTO player_score (id, tenant_id, player_id, competition_id, score, row_num, created_at, updated_at) VALUES (:id, :tenant_id, :player_id, :competition_id, :score, :row_num, :created_at, :updated_at)",
