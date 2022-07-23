@@ -13,5 +13,6 @@ services:
       - /home/isucon/isucon12-yosen/webapp/sql:/home/isucon/webapp/sql
       - /home/isucon/webapp/public.pem:/home/isucon/webapp/public.pem:ro
       - /home/isucon/initial_data:/home/isucon/initial_data
+      - /home/isucon/new_initial_data:/home/isucon/new_initial_data
       - /home/isucon/tmp:/home/isucon/tmp
     init: true
